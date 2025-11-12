@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:football_news/widgets/left_drawer.dart';
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:football_news/screens/menu.dart';
 
 class NewsFormPage extends StatefulWidget {
   const NewsFormPage({super.key});
@@ -27,6 +31,7 @@ class _NewsFormPageState extends State<NewsFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final request = context.watch<CookieRequest>(); // koneksi ke Django auth
     return Scaffold(
       appBar: AppBar(
         title: const Center(
@@ -43,7 +48,7 @@ class _NewsFormPageState extends State<NewsFormPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              // === Title ===
+              // === TITLE ===
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextFormField(
@@ -55,7 +60,7 @@ class _NewsFormPageState extends State<NewsFormPage> {
                     ),
                   ),
                   onChanged: (String? value) {
-                    setState(() => _title = value!);
+                    setState(() => _title = value ?? "");
                   },
                   validator: (String? value) {
                     if (value == null || value.isEmpty) {
@@ -66,7 +71,7 @@ class _NewsFormPageState extends State<NewsFormPage> {
                 ),
               ),
 
-              // === Content ===
+              // === CONTENT ===
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextFormField(
@@ -79,7 +84,7 @@ class _NewsFormPageState extends State<NewsFormPage> {
                     ),
                   ),
                   onChanged: (String? value) {
-                    setState(() => _content = value!);
+                    setState(() => _content = value ?? "");
                   },
                   validator: (String? value) {
                     if (value == null || value.isEmpty) {
@@ -90,7 +95,7 @@ class _NewsFormPageState extends State<NewsFormPage> {
                 ),
               ),
 
-              // === Category Dropdown ===
+              // === CATEGORY ===
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: DropdownButtonFormField<String>(
@@ -110,12 +115,12 @@ class _NewsFormPageState extends State<NewsFormPage> {
                           ))
                       .toList(),
                   onChanged: (String? newValue) {
-                    setState(() => _category = newValue!);
+                    setState(() => _category = newValue ?? "update");
                   },
                 ),
               ),
 
-              // === Thumbnail URL ===
+              // === THUMBNAIL ===
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextFormField(
@@ -127,12 +132,12 @@ class _NewsFormPageState extends State<NewsFormPage> {
                     ),
                   ),
                   onChanged: (String? value) {
-                    setState(() => _thumbnail = value!);
+                    setState(() => _thumbnail = value ?? "");
                   },
                 ),
               ),
 
-              // === Featured Switch ===
+              // === FEATURED SWITCH ===
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: SwitchListTile(
@@ -144,46 +149,50 @@ class _NewsFormPageState extends State<NewsFormPage> {
                 ),
               ),
 
-              // === Button: Save ===
+              // === SUBMIT BUTTON ===
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
                           MaterialStateProperty.all(Colors.indigo),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_formKey.currentState!.validate()) {
-                        showDialog(
-                          context: context,
-                          builder: (context) {
-                            return AlertDialog(
-                              title: const Text('Berita berhasil disimpan!'),
-                              content: SingleChildScrollView(
-                                child: ListBody(
-                                  children: [
-                                    Text("Judul: $_title"),
-                                    Text('Isi: $_content'),
-                                    Text("Kategori: $_category"),
-                                    Text('Thumbnail: $_thumbnail'),
-                                    Text("Unggulan: ${_isFeatured ? 'Ya' : 'Tidak'}"),
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  child: const Text('OK'),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _formKey.currentState!.reset();
-                                  },
-                                ),
-                              ],
-                            );
-                          },
+                        final response = await request.postJson(
+                          "http://localhost:8000/create-flutter/",
+                          jsonEncode({
+                            "title": _title,
+                            "content": _content,
+                            "thumbnail": _thumbnail,
+                            "category": _category,
+                            "is_featured": _isFeatured,
+                          }),
                         );
+
+                        if (context.mounted) {
+                          if (response['status'] == 'success') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("News successfully saved!"),
+                              ),
+                            );
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => MyHomePage()),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    "Something went wrong, please try again."),
+                              ),
+                            );
+                          }
+                        }
                       }
                     },
                     child: const Text(
